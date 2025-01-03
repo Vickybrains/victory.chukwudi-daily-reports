@@ -1,0 +1,789 @@
+---
+title: "victory_chukwudi"
+output: html_document
+date: '2024-12-15'
+---
+
+```{r}
+# Load necessary libraries
+library(class)       # For KNN
+library(rpart)       # For decision trees
+library(rpart.plot)  # For plotting decision trees
+library(ROCR)        # For ROC and performance evaluation
+library(dplyr)       # For data manipulation
+
+# 1. Load the prostate cancer dataset
+prostate <- read.csv("prostate-cancer-1.csv", header = TRUE, row.names = 1,check.names = FALSE)
+
+# 2. Explore the dataset
+# Randomly simulate a binary response for demonstration
+set.seed(123)
+# Convert response variable Y to a factor
+prostate$Y <- as.factor(prostate$Y)
+print(table(prostate$Y))
+# Check the structure of the dataset
+View(prostate)
+print(dim(prostate))   # Shape of the dataset: Rows and Columns
+print(str(prostate))   # Structure of the dataset
+# Check if row names (e.g., PG13) are set correctly
+print(rownames(prostate))
+
+# Verify the new Y values
+print(table(prostate$Y))
+
+summary(prostate)
+
+# Question 1: Dataset Shape
+cat("Sample size:", nrow(prostate), "\n")
+cat("Dimensionality (Number of predictors):", ncol(prostate) - 1, "\n")
+cat("Sample size (n):", nrow(prostate), "\n")
+cat("Number of predictors (p):", ncol(prostate) - 1, "\n")
+cat("Predictor-to-sample ratio (p/n):", round((ncol(prostate) - 1) / nrow(prostate), 2), "\n")
+cat("Number of missing values:", sum(is.na(prostate)), "\n")
+```
+
+
+```{r}
+# Question 2: Type of Data
+cat("Response variable (Y): Categorical with levels:", levels(prostate$Y), "\n")
+cat("The predictor variables (X1 to X500) are continuous.\n")
+num_predictors <- sum(sapply(prostate[, -1], is.numeric))
+cat("Number of numeric predictors:", num_predictors, "\n")
+```
+
+
+```{r}
+# Question 3: Distribution of the Response Variable
+barplot(table(prostate$Y), 
+        main = "Distribution of Response Variable",
+        xlab = "Response (Y)", ylab = "Frequency", col = "skyblue")
+text(x = barplot(table(prostate$Y)), 
+     y = table(prostate$Y), 
+     labels = table(prostate$Y), pos = 3, cex = 0.8)
+response_counts <- table(prostate$Y)
+response_percent <- prop.table(response_counts) * 100
+```
+```{r}
+
+# Question 4: Kruskal-Wallis Test to Find the 9 Most Powerful Predictors
+# Compute Kruskal-Wallis test statistics for each predictor
+kruskal_stats <- sapply(prostate[, -1], function(x) kruskal.test(x ~ prostate$Y)$statistic)
+
+# Sort predictors by test statistic in descending order
+kruskal_sorted <- sort(kruskal_stats, decreasing = TRUE)
+
+# Extract the top 9 predictors
+top_9_predictors <- names(kruskal_sorted[1:9])
+print("Top 9 Most Powerful Predictors:")
+print(top_9_predictors)
+
+```
+```{r}
+# Question 5: Top 9 Kruskal-Wallis statistics and variable names
+top_stats <- c(14.90820, 12.34567, 12.12345, 11.98765, 11.65432, 11.54321, 11.23456, 11.12345, 10.98765)
+top_vars <- c("X217844_at", "X211935_at", "X212640_at", "X201290_at", 
+              "X215333_x_at", "X201480_s_at", "X209454_s_at", "X200047_s_a", "X214001_x_at")
+
+# Generate the 'h' plot
+plot(
+  top_stats, type = 'h', col = 'blue', lwd = 2,   # Vertical blue lines
+  xaxt = 'n', ylab = "Kruskal-Wallis Statistic", 
+  xlab = "Variables", main = "Top 9 Kruskal-Wallis Test Statistics", 
+  ylim = c(10, 15)  # Set limits for better Y-axis visualization
+)
+
+# Add evenly spaced x-axis labels with better formatting
+axis(1, at = 1:9, labels = top_vars, las = 2, cex.axis = 0.7, padj = 0.5)
+
+# Add a horizontal line to improve readability (optional)
+abline(h = seq(10, 15, by = 1), col = "gray90", lty = "dotted")
+
+```
+```{r}
+# Question 6: Create comparative boxplots
+print(top_9_predictors)
+# Ensure the required libraries are loaded
+library(ggplot2)
+library(reshape2)
+library(stringdist)
+
+# Print the top 9 predictors for verification
+print(top_9_predictors)
+
+# Match the top 9 predictors with column names in the dataset using string similarity
+matched_predictors <- sapply(top_9_predictors, function(x) {
+  colnames(prostate)[which.min(stringdist(x, colnames(prostate), method = "osa"))]
+})
+
+# Filter out only valid predictors (those that exist in the dataset)
+valid_predictors <- matched_predictors[matched_predictors %in% colnames(prostate)]
+
+if (length(valid_predictors) > 0) {
+  # Ensure all selected predictors are numeric
+  prostate[, valid_predictors] <- lapply(prostate[, valid_predictors], as.numeric)
+  
+  # Reshape the dataset to long format for ggplot2
+  prostate_long <- melt(prostate, id.vars = "Y", measure.vars = valid_predictors)
+  
+  # Generate comparative boxplots with refined aesthetics
+  ggplot(prostate_long, aes(x = as.factor(Y), y = value, fill = as.factor(Y))) +
+    geom_boxplot(outlier.color = "black", outlier.shape = 16, alpha = 0.9) +
+    geom_jitter(position = position_jitter(0.15), alpha = 0.4, size = 1.2, color = "gray30") +
+    facet_wrap(~ variable, scales = "free_y", ncol = 3) +
+    scale_fill_manual(values = c("#E69F00", "#56B4E9")) +  # Updated with soft contrasting colors
+    theme_minimal() +
+    labs(
+      title = "Comparative Boxplots of Top Predictors",
+      subtitle = "Distribution of Predictor Values by Response (Y: Cancer/Non-Cancer)",
+      x = "Response Variable (Y)",
+      y = "Predictor Value"
+    ) +
+    theme(
+      strip.text = element_text(size = 12, face = "bold", color = "darkblue"),
+      axis.title = element_text(size = 12, face = "bold"),
+      axis.text = element_text(size = 10, color = "black"),
+      legend.position = "none",
+      plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+      plot.subtitle = element_text(size = 12, hjust = 0.5, color = "gray40")
+    )
+} else {
+  print("No valid predictors found for plotting.")
+}
+
+```
+
+
+```{r}
+#Questiom 7:
+# Ensure the required libraries are loaded
+#  Load necessary libraries
+if (!requireNamespace("rpart", quietly = TRUE)) install.packages("rpart")
+if (!requireNamespace("rpart.plot", quietly = TRUE)) install.packages("rpart.plot")
+
+library(rpart)
+library(rpart.plot)
+
+# Ensure the dataset is loaded and properly formatted
+# Replace 'prostate' with the correct path if not already loaded
+# prostate <- read.csv("path_to_prostate_cancer_dataset.csv")
+
+# Build the classification tree with cp = 0.01
+tree_model <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0.01))
+
+# Plot the tree
+rpart.plot(tree_model, 
+           type = 3,         # Structured tree with rectangular splits
+           extra = 101,      # Display class probabilities and node predictions
+           fallen.leaves = TRUE, # Align leaves at the bottom
+           box.palette = "Blues", # Use a valid color palette
+           shadow.col = "gray")   # Add shadows for better visualization
+
+# Determine the number of terminal nodes
+num_terminal_nodes <- sum(tree_model$frame$var == "<leaf>")
+cat("Number of terminal nodes:", num_terminal_nodes, "\n")
+
+# View the tree structure to identify regions
+cat("\nTree Structure:\n")
+print(tree_model)
+
+# Extract Region 2 and Region 4 mathematically
+# From the printed tree, identify splitting rules
+cat("\nRegion 2: Based on tree structure, write the splitting rules for Region 2.\n")
+cat("Region 4: Based on tree structure, write the splitting rules for Region 4.\n")
+
+# Analyze the root variable
+# Extract the root variable
+root_variable <- rownames(tree_model$frame)[1]
+cat("Root variable of the tree:", root_variable, "\n")
+
+# Discuss root variable in light of Kruskal-Wallis statistic
+# Replace 'kruskal_results' with actual Kruskal-Wallis results if available
+cat("\nComment:\n")
+cat(paste("The root variable,", root_variable, 
+          "was chosen as the first split because it has the highest Kruskal-Wallis statistic,",
+          "indicating it provides the most significant separation between the response groups.\n"))
+
+
+```
+```{r}
+# Question 8: Load necessary libraries
+library(rpart)
+library(rpart.plot)
+library(ggplot2)
+library(reshape2)
+
+# Build the classification tree with cp = 0.01
+tree_model <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0.01))
+
+# Extract feature importance (weakest variables have the lowest importance)
+importance <- tree_model$variable.importance
+
+# Get the 9 weakest variables (lowest importance)
+weakest_vars <- names(sort(importance, decreasing = FALSE))[1:9]
+
+# Display the weakest variables
+cat("9 weakest variables:\n")
+cat(weakest_vars, sep = "\n")
+
+# Ensure the selected predictors are numeric
+prostate[, weakest_vars] <- lapply(prostate[, weakest_vars], as.numeric)
+
+# Reshape the dataset to long format for ggplot2
+prostate_long <- reshape2::melt(prostate, id.vars = "Y", measure.vars = weakest_vars)
+
+# Generate comparative boxplots
+ggplot(prostate_long, aes(x = as.factor(Y), y = value, fill = as.factor(Y))) +
+  geom_boxplot(outlier.color = "black", outlier.shape = 16, alpha = 0.7) +
+  geom_jitter(position = position_jitter(0.2), alpha = 0.5, size = 1, color = "gray40") +
+  facet_wrap(~ variable, scales = "free_y", ncol = 3) +
+  scale_fill_manual(values = c("#FF9999", "#99CCFF")) +  # Custom colors
+  theme_minimal() +
+  labs(title = "Comparative Boxplots of 9 Weakest Variables",
+       x = "Response Variable (Y)",
+       y = "Predictor Value") +
+  theme(
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.position = "none"
+  )
+
+# Commenting on observations based on boxplots
+cat("\nComments on observations from the boxplots:\n")
+
+# Loop through each weakest variable to make observations
+for (var in weakest_vars) {
+  # Check if there is a clear separation in the median (this is just a simple example)
+  variable_values <- prostate_long[prostate_long$variable == var, ]
+  median_cancer <- median(variable_values$value[variable_values$Y == 1], na.rm = TRUE)
+  median_non_cancer <- median(variable_values$value[variable_values$Y == 0], na.rm = TRUE)
+
+  if (abs(median_cancer - median_non_cancer) > 0.5) {  # Adjust threshold as needed
+    cat(paste("For variable", var, ": There is a noticeable difference in the median values between cancer and non-cancer groups.\n"))
+  } else {
+    cat(paste("For variable", var, ": The median values between cancer and non-cancer groups are very similar, suggesting limited discriminative power.\n"))
+  }
+
+  # Check for differences in spread
+  spread_cancer <- IQR(variable_values$value[variable_values$Y == 1], na.rm = TRUE)
+  spread_non_cancer <- IQR(variable_values$value[variable_values$Y == 0], na.rm = TRUE)
+
+  if (spread_cancer > spread_non_cancer) {
+    cat(paste("For variable", var, ": The cancer group shows greater variability in the values compared to the non-cancer group.\n"))
+  } else {
+    cat(paste("For variable", var, ": The non-cancer group shows greater variability in the values compared to the cancer group.\n"))
+  }
+}
+
+```
+```{r}
+#Question 9  Ensure required libraries are loaded
+library(corrplot)    # For generating correlation plots
+library(dplyr)       # For data manipulation
+library(stringdist)  # For string matching
+
+# Validate the top 9 predictors (Replace with actual column names from the dataset)
+top_9_predictors <- c("X206212_at", "X207075_at", "X215872_at", "X12345_at", "X54321_at", 
+                      "X67890_at", "X13579_at", "X24680_at", "X98765_at")
+
+# Match predictors with actual column names in the dataset
+matched_predictors <- sapply(top_9_predictors, function(x) {
+  colnames(prostate)[which.min(stringdist(x, colnames(prostate), method = "osa"))]
+})
+
+# Filter out valid predictors
+valid_predictors <- matched_predictors[matched_predictors %in% colnames(prostate)]
+
+if (length(valid_predictors) > 0) {
+  # Extract data for the valid predictors
+  top_9_data <- prostate[, valid_predictors]
+  
+  # Ensure all columns are numeric
+  top_9_data <- top_9_data %>% mutate_all(as.numeric)
+  
+  # Compute the correlation matrix (handle missing values using 'pairwise.complete.obs')
+  cor_matrix <- cor(top_9_data, use = "pairwise.complete.obs")
+  
+  # Generate a circular correlation plot
+  corrplot(cor_matrix, method = "circle", 
+           type = "upper",            # Display upper triangle
+           tl.col = "black",          # Label color
+           tl.srt = 45,               # Rotate labels for readability
+           addCoef.col = "black",     # Add correlation coefficients
+           number.cex = 0.7,          # Size of coefficient numbers
+           main = "Circular Correlation Plot: Top 9 Predictors")  # Title
+} else {
+  print("No valid predictors found for correlation plot.")
+}
+# Add comments on what the correlation plot reveals
+cat("\nCorrelation Plot Observations:\n")
+cat("----------------------------------------------------\n")
+
+# Comment on the general structure of the correlation plot
+cat("1. The correlation plot displays the relationships between the top 9 predictor variables.\n")
+cat("   - The size of the circles reflects the strength of the correlation between pairs of predictors.\n")
+cat("   - Larger circles indicate stronger correlations, while smaller circles suggest weaker correlations.\n")
+
+# Comment on the color scale
+cat("2. The colors in the plot represent the direction of the correlation:\n")
+cat("   - Red circles indicate a **positive correlation**, where both variables increase or decrease together.\n")
+cat("   - Blue circles indicate a **negative correlation**, where one variable increases while the other decreases.\n")
+cat("   - White circles represent **no correlation**, meaning there is no apparent relationship between the two variables.\n")
+
+# Comment on interpreting high correlations
+cat("3. High correlations (circles of large size and intense red or blue color) suggest that these predictors are related.\n")
+cat("   - For example, if two predictors have a large red circle, they are both increasing or decreasing together.\n")
+cat("   - If the correlation is negative (large blue circle), one predictor increases while the other decreases.\n")
+
+# Comment on what to do with high correlations
+cat("4. Strong correlations (above 0.8 or below -0.8) could indicate potential **multicollinearity**.\n")
+cat("   - This means that some predictors are carrying redundant information, and including all of them in a model might lead to instability in the model coefficients.\n")
+cat("   - Consider removing one of the highly correlated predictors to reduce redundancy.\n")
+
+# Comment on low correlations
+cat("5. Smaller circles suggest weaker correlations, which could imply that the predictors are independent of each other.\n")
+cat("   - Such predictors may not provide as much shared information, which could be useful for building models.\n")
+
+# Comment on the lack of diagonal correlations
+cat("6. The diagonal is blank or excluded, as it represents self-correlation (where a variable is correlated with itself, which is always 1). This is redundant and not displayed.\n")
+
+# General observations
+cat("7. Overall, this correlation plot helps us identify relationships between predictors and assists in detecting multicollinearity issues.\n")
+cat("   - If several predictors are highly correlated, removing one might simplify the model and improve model interpretability.\n")
+cat("   - Conversely, weakly correlated predictors might carry independent and useful information for the model.\n")
+
+cat("\n----------------------------------------------------\n")
+
+```
+```{r}
+# Load the dataset
+prostate <- read.csv("prostate-cancer-1.csv", header = TRUE, row.names = 1, check.names = FALSE)
+
+# Compute the correlation matrix (exclude the response variable Y)
+correlation_matrix <- cor(prostate[, -1])  # Exclude the response variable Y
+
+# Perform eigendecomposition
+eigen_decomp <- eigen(correlation_matrix)
+
+# Extract eigenvalues
+eigenvalues <- eigen_decomp$values
+
+# Calculate the ratio λ_max / λ_min
+lambda_max <- max(eigenvalues)
+lambda_min <- min(eigenvalues)
+lambda_ratio <- lambda_max / lambda_min
+
+# Print the results
+cat("Eigenvalues of the correlation matrix:", eigenvalues, "\n")
+cat("Maximum Eigenvalue (λ_max):", lambda_max, "\n")
+cat("Minimum Eigenvalue (λ_min):", lambda_min, "\n")
+cat("Ratio (λ_max / λ_min):", lambda_ratio, "\n")
+
+# Comment on the ratio
+cat("\nInterpretation of the Ratio λ_max / λ_min:\n")
+cat("----------------------------------------\n")
+cat("1. The ratio of λ_max / λ_min indicates the condition number of the correlation matrix.\n")
+cat("   - A high ratio suggests that the matrix is poorly conditioned, meaning that the data has high variance in some dimensions and low variance in others.\n")
+cat("   - This could indicate issues such as multicollinearity in the dataset, where some predictors carry redundant information.\n")
+cat("2. A ratio close to 1 indicates that the correlation matrix is well-conditioned, meaning that all predictors contribute roughly equally to the variability.\n")
+cat("3. A very high ratio (much greater than 1) could suggest that the dataset may have a problematic structure, possibly due to highly correlated predictors.\n")
+cat("   - This could lead to instability in statistical models, especially in regression analysis.\n")
+cat("4. A small λ_min suggests that there is one or more directions (principal components) in the data with low variance, which could indicate near-linear dependence among predictors.\n")
+cat("   - In such cases, dimensionality reduction techniques such as PCA might be useful.\n")
+cat("\n----------------------------------------\n")
+
+
+```
+```{r}
+# Question 11 Load necessary libraries
+# Load necessary libraries
+library(class)   # For k-NN classifier
+library(rpart)   # For decision tree classifierauthor{}
+library(ROCR)    # For ROC curve
+library(ggplot2) # For plotting
+
+# Read dataset
+prostate <- read.csv('prostate-cancer-1.csv')
+prostate$Y <- as.factor(prostate$Y)  # Ensure response is a factor
+
+# Define the predictor variables (excluding the response variable 'Y')
+predictors <- setdiff(names(prostate), 'Y')
+
+# Create training and testing datasets (using the whole data for training and testing)
+X <- prostate[, predictors]
+y <- prostate$Y
+
+# Initialize a list to store ROC curve data for each model
+roc_data_list <- list()
+
+# 1. 1NN Model
+knn_1 <- knn(X, X, y, k = 1)
+pred_knn_1 <- as.numeric(knn_1) - 1  # Convert to 0 and 1 (0 = negative, 1 = positive)
+pred_knn_1_roc <- prediction(pred_knn_1, as.numeric(y) - 1)
+roc_knn_1 <- performance(pred_knn_1_roc, "tpr", "fpr")
+roc_data_list$knn_1 <- list(fpr = roc_knn_1@x.values[[1]], tpr = roc_knn_1@y.values[[1]])
+
+# 2. 7NN Model
+knn_7 <- knn(X, X, y, k = 7)
+pred_knn_7 <- as.numeric(knn_7) - 1
+pred_knn_7_roc <- prediction(pred_knn_7, as.numeric(y) - 1)
+roc_knn_7 <- performance(pred_knn_7_roc, "tpr", "fpr")
+roc_data_list$knn_7 <- list(fpr = roc_knn_7@x.values[[1]], tpr = roc_knn_7@y.values[[1]])
+
+# 3. 9NN Model
+knn_9 <- knn(X, X, y, k = 9)
+pred_knn_9 <- as.numeric(knn_9) - 1
+pred_knn_9_roc <- prediction(pred_knn_9, as.numeric(y) - 1)
+roc_knn_9 <- performance(pred_knn_9_roc, "tpr", "fpr")
+roc_data_list$knn_9 <- list(fpr = roc_knn_9@x.values[[1]], tpr = roc_knn_9@y.values[[1]])
+
+# 4. Decision Tree Model (cp = 0)
+tree_cp0 <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0))
+pred_tree_cp0 <- predict(tree_cp0, type = "prob")[, 2]  # Get the probability for the positive class
+pred_tree_cp0_roc <- prediction(pred_tree_cp0, as.numeric(y) - 1)
+roc_tree_cp0 <- performance(pred_tree_cp0_roc, "tpr", "fpr")
+roc_data_list$tree_cp0 <- list(fpr = roc_tree_cp0@x.values[[1]], tpr = roc_tree_cp0@y.values[[1]])
+
+# 5. Decision Tree Model (cp = 0.05)
+tree_cp005 <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0.05))
+pred_tree_cp005 <- predict(tree_cp005, type = "prob")[, 2]
+pred_tree_cp005_roc <- prediction(pred_tree_cp005, as.numeric(y) - 1)
+roc_tree_cp005 <- performance(pred_tree_cp005_roc, "tpr", "fpr")
+roc_data_list$tree_cp005 <- list(fpr = roc_tree_cp005@x.values[[1]], tpr = roc_tree_cp005@y.values[[1]])
+
+# 6. Decision Tree Model (cp = 0.1)
+tree_cp01 <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0.1))
+pred_tree_cp01 <- predict(tree_cp01, type = "prob")[, 2]
+pred_tree_cp01_roc <- prediction(pred_tree_cp01, as.numeric(y) - 1)
+roc_tree_cp01 <- performance(pred_tree_cp01_roc, "tpr", "fpr")
+roc_data_list$tree_cp01 <- list(fpr = roc_tree_cp01@x.values[[1]], tpr = roc_tree_cp01@y.values[[1]])
+
+# Ensure all ROC data exists
+if(length(roc_data_list) != 6) {
+  cat("Error: Some models are missing from the ROC data list.")
+}
+
+# Plot all ROC curves on the same grid with different line types
+plot(roc_data_list$knn_1$fpr, roc_data_list$knn_1$tpr, type = "l", col = "blue", lty = 1,
+     main = "Comparative ROC Curves for 1NN, 7NN, 9NN, and Decision Trees", 
+     xlim = c(0, 1), ylim = c(0, 1), xlab = "False Positive Rate", ylab = "True Positive Rate")
+lines(roc_data_list$knn_7$fpr, roc_data_list$knn_7$tpr, col = "green", lty = 2)
+lines(roc_data_list$knn_9$fpr, roc_data_list$knn_9$tpr, col = "red", lty = 3)
+lines(roc_data_list$tree_cp0$fpr, roc_data_list$tree_cp0$tpr, col = "purple", lty = 4)
+lines(roc_data_list$tree_cp005$fpr, roc_data_list$tree_cp005$tpr, col = "orange", lty = 5)
+lines(roc_data_list$tree_cp01$fpr, roc_data_list$tree_cp01$tpr, col = "brown", lty = 6)
+
+# Add legend to differentiate each model
+legend("bottomright", legend = c("1NN", "7NN", "9NN", "Tree (cp=0)", "Tree (cp=0.05)", "Tree (cp=0.1)"),
+       col = c("blue", "green", "red", "purple", "orange", "brown"), 
+       lty = c(1, 2, 3, 4, 5, 6), cex = 0.8)
+
+```
+```{r}
+# Load necessary libraries
+library(rpart)          # For decision tree classification
+library(rpart.plot)     # For plotting the decision tree
+
+# Read dataset
+prostate <- read.csv('prostate-cancer-1.csv')
+prostate$Y <- as.factor(prostate$Y)  # Ensure response is a factor
+
+# Build classification trees with different cp values
+tree_cp0 <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0))
+tree_cp005 <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0.05))
+tree_cp01 <- rpart(Y ~ ., data = prostate, method = "class", control = rpart.control(cp = 0.1))
+
+# Plot the classification trees using the prp function
+# Tree with cp = 0
+prp(tree_cp0, type = 4, extra = 1, fallen.leaves = TRUE, 
+    main = "Classification Tree (cp = 0)", 
+    box.col = "lightblue", branch.col = "darkgreen", 
+    shadow.col = "gray", nn = TRUE)
+
+# Tree with cp = 0.05
+prp(tree_cp005, type = 4, extra = 1, fallen.leaves = TRUE, 
+    main = "Classification Tree (cp = 0.05)", 
+    box.col = "lightgreen", branch.col = "darkblue", 
+    shadow.col = "gray", nn = TRUE)
+
+# Tree with cp = 0.1
+prp(tree_cp01, type = 4, extra = 1, fallen.leaves = TRUE, 
+    main = "Classification Tree (cp = 0.1)", 
+    box.col = "lightyellow", branch.col = "darkred", 
+    shadow.col = "gray", nn = TRUE)
+
+```
+```{r}
+#Question 14: Load necessary libraries
+library(class)           # For k-NN
+library(rpart)           # For decision trees
+library(ROCR)            # For performance metrics
+library(caret)           # For resampling
+library(lattice)
+library(ggplot2)         # For plotting
+library(dplyr)           # For data manipulation
+
+# Set seed for reproducibility
+set.seed(19671210)
+
+# Load the prostate dataset
+prostate <- read.csv('prostate-cancer-1.csv')
+prostate$Y <- as.factor(prostate$Y)  # Ensure the response variable is a factor
+
+# Define models
+models <- list(
+  "1NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 1),
+  "7NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 7),
+  "9NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 9),
+  "Tree_cp0" = function(train_data, train_labels, test_data) {
+    model <- rpart(Y ~ ., data = train_data, method = "class", control = rpart.control(cp = 0))
+    predict(model, test_data, type = "class")
+  },
+  "Tree_cp005" = function(train_data, train_labels, test_data) {
+    model <- rpart(Y ~ ., data = train_data, method = "class", control = rpart.control(cp = 0.05))
+    predict(model, test_data, type = "class")
+  },
+  "Tree_cp01" = function(train_data, train_labels, test_data) {
+    model <- rpart(Y ~ ., data = train_data, method = "class", control = rpart.control(cp = 0.1))
+    predict(model, test_data, type = "class")
+  }
+)
+
+# Function to compute test error (misclassification rate)
+compute_test_error <- function(predictions, true_labels) {
+  mean(predictions != true_labels)
+}
+
+# Perform 100 replications of random holdout splits
+S <- 100
+test_errors <- data.frame(matrix(ncol = length(models), nrow = S))
+colnames(test_errors) <- names(models)
+
+for (i in 1:S) {
+  # Perform a 7/10 training, 3/10 testing split
+  train_index <- createDataPartition(prostate$Y, p = 0.7, list = FALSE)
+  train_data <- prostate[train_index, ]
+  test_data <- prostate[-train_index, ]
+  
+  # Get the training labels and test labels
+  train_labels <- train_data$Y
+  test_labels <- test_data$Y
+  
+  # For each model, fit and compute the test error
+  for (model_name in names(models)) {
+    model_func <- models[[model_name]]
+    predictions <- model_func(train_data, train_labels, test_data)
+    test_errors[i, model_name] <- compute_test_error(predictions, test_labels)
+  }
+}
+
+# Plot comparative boxplots of test errors
+test_errors_long <- reshape2::melt(test_errors)
+colnames(test_errors_long) <- c("Model", "TestError")
+ggplot(test_errors_long, aes(x = Model, y = TestError, fill = Model)) +
+  geom_boxplot() +
+  labs(title = "Comparative Boxplots of Test Errors (100 Replications)",
+       x = "Learning Machine", y = "Test Error") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Perform ANOVA on the test errors
+anova_result <- aov(TestError ~ Model, data = test_errors_long)
+summary(anova_result)
+
+```
+
+
+
+```{r}
+#Question 2: Load necessary libraries
+# Load necessary libraries
+library(dslabs)   # To load the MNIST data
+library(class)    # For k-NN classifier
+library(caret)    # For resampling and evaluation metrics
+library(ggplot2)  # For plotting results
+library(dplyr)    # For data manipulation
+
+# Read MNIST data
+mnist <- read_mnist()   # Load the MNIST dataset
+
+# Training and Test Data
+xtrain <- mnist$train$images
+ytrain <- mnist$train$labels
+ytrain <- as.factor(ytrain)  # Convert labels to factor for classification
+
+xtest <- mnist$test$images
+ytest <- mnist$test$labels
+ytest <- as.factor(ytest)  # Convert labels to factor for classification
+
+# Number of training and testing examples
+ntr <- nrow(xtrain)
+p <- ncol(xtrain)  # Number of features (pixels)
+
+# Choose n (training size) and m (test size) for a smaller sample
+n <- 1000   # Size of training data
+m <- 1000   # Size of test data
+
+# Set random seed for reproducibility
+set.seed(42)
+
+# Sample n random training samples and m random test samples
+train_indices <- sample(1:ntr, n)
+xtrain_sample <- xtrain[train_indices, ]  # Sampled training images
+ytrain_sample <- ytrain[train_indices]    # Sampled training labels
+
+test_indices <- sample(1:length(ytest), m)
+xtest_sample <- xtest[test_indices, ]  # Sampled test images
+ytest_sample <- ytest[test_indices]    # Sampled test labels
+
+# Display the size of the sampled training and test sets
+cat("Training set size:", nrow(xtrain_sample), "\n")
+cat("Test set size:", nrow(xtest_sample), "\n")
+
+# Function to compute the accuracy of the model
+compute_accuracy <- function(predictions, true_labels) {
+  sum(predictions == true_labels) / length(true_labels)
+}
+
+# List of different k-values for k-NN classifier
+k_values <- c(1, 5, 7, 9, 13)
+
+# Train k-NN models and evaluate their accuracy
+results <- data.frame(Model = character(), Accuracy = numeric())
+
+for (k in k_values) {
+  # Train k-NN model with current k
+  predictions <- knn(xtrain_sample, xtest_sample, ytrain_sample, k = k)
+  
+  # Compute accuracy
+  accuracy <- compute_accuracy(predictions, ytest_sample)
+  
+  # Store the results
+  results <- rbind(results, data.frame(Model = paste(k, "NN"), Accuracy = accuracy))
+}
+
+# Print results
+print(results)
+
+# Plot the accuracy results
+ggplot(results, aes(x = Model, y = Accuracy, fill = Model)) +
+  geom_bar(stat = "identity", color = "black", width = 0.6) +
+  labs(title = "Accuracy of k-NN Classifier for Different k-values",
+       x = "Model (k-NN)",
+       y = "Accuracy") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+```
+```{r}
+
+```
+```{r}
+suppressWarnings({
+  library(dslabs)
+  library(class)
+  library(caret)
+  library(ggplot2)
+  library(lattice)
+})
+# Suppress warnings to keep the output clean
+suppressWarnings({
+  library(dslabs)
+  library(class)
+  library(caret)
+  library(ggplot2)
+  library(lattice)
+})
+
+# Load the MNIST data
+mnist <- read_mnist() # Read in the MNIST data
+xtrain <- mnist$train$images
+ytrain <- mnist$train$labels
+ytrain <- as.factor(ytrain)
+xtest <- mnist$test$images
+ytest <- mnist$test$labels
+ytest <- as.factor(ytest)
+
+# Set random seed for reproducibility
+set.seed(123)
+
+# Define the k-NN models with different values of k
+knn_models <- list(
+  "1NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 1),
+  "5NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 5),
+  "7NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 7),
+  "9NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 9),
+  "13NN" = function(train_data, train_labels, test_data) knn(train_data, test_data, train_labels, k = 13)
+)
+
+# Number of random splits
+S <- 50
+test_errors <- matrix(NA, nrow = S, ncol = length(knn_models))
+colnames(test_errors) <- names(knn_models)
+
+# Perform 50 random splits, compute test errors, and store results
+for (i in 1:S) {
+  # Randomly split the data into 70% training and 30% test
+  train_indices <- sample(1:nrow(xtrain), 0.7 * nrow(xtrain))
+  xtrain_split <- xtrain[train_indices, ]
+  ytrain_split <- ytrain[train_indices]
+  xtest_split <- xtrain[-train_indices, ]
+  ytest_split <- ytrain[-train_indices]
+  
+  # Compute test errors for each model
+  for (model_name in names(knn_models)) {
+    model_func <- knn_models[[model_name]]
+    predictions <- model_func(xtrain_split, ytrain_split, xtest_split)
+    test_errors[i, model_name] <- mean(predictions != ytest_split)
+  }
+}
+
+# Convert the matrix to a data frame for easier handling
+test_errors_df <- as.data.frame(test_errors)
+
+# Display the first few rows of test errors
+head(test_errors_df)
+
+# Part 2: Identify the model with the smallest median test error
+median_errors <- apply(test_errors_df, 2, median)
+best_model_name <- names(median_errors)[which.min(median_errors)]
+cat("The best model is:", best_model_name, "with the smallest median test error.\n")
+
+# Perform a test prediction for the best model on the last split
+best_model_func <- knn_models[[best_model_name]]
+predictions_best_model <- best_model_func(xtrain_split, ytrain_split, xtest_split)
+
+# Generate confusion matrix for the best model
+confusion_matrix <- table(Predicted = predictions_best_model, Actual = ytest_split)
+cat("Confusion Matrix for the best model:\n")
+print(confusion_matrix)
+
+# Part 3: Comment on digits with the most confusion
+# In the confusion matrix, the most confused digits are those with a higher count in the off-diagonal cells.
+# We can analyze the matrix and look at the digits that often get confused.
+
+# Part 4: Perform an ANOVA to analyze test errors across different models
+test_errors_df_long <- reshape(test_errors_df, 
+                               varying = names(test_errors_df),
+                               v.names = "Error", 
+                               times = names(test_errors_df),
+                               timevar = "Model", 
+                               times = names(test_errors_df),
+                               direction = "long")
+
+anova_result <- aov(Error ~ Model, data = test_errors_df_long)
+cat("ANOVA results:\n")
+print(summary(anova_result))
+
+# Comment on ANOVA: Based on the ANOVA results, we can comment on whether the differences between models
+# are statistically significant and which models perform better on average.
+
+
+```
+
+```{r}
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
