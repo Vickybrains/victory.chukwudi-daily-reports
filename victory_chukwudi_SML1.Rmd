@@ -1,0 +1,439 @@
+
+
+  QUESTION 1
+  
+#PART 1
+```{r}
+# Load necessary libraries
+library(ggplot2)
+
+# Load the dataset
+data <- read.csv("aims-sml-2024-2025-data.csv")
+
+# Preview the data
+head(data)
+str(data)
+# Determine the size of the dataset
+n <- nrow(data)
+num_columns <- ncol(data)
+cat("The dataset has", n, "observations and", num_columns, "features.\n")
+# Create a scatterplot
+ggplot(data, aes(x = x, y = y)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  labs(title = "Scatterplot of y versus x",
+       x = "x",
+       y = "y") +
+  theme_minimal()
+# Inspect the target variable
+summary(data$y)
+
+# Analysis: If `y` is continuous, it’s a regression task. If `y` is categorical (e.g., factors), it’s a classification task.
+
+# Check the data type of y
+if (is.numeric(data$y)) {
+  cat("This is a regression task because the target variable y is numeric and continuous.\n")
+} else if (is.factor(data$y) || is.character(data$y)) {
+  cat("This is a classification task because the target variable y is categorical.\n")
+} else {
+  cat("The nature of the task cannot be determined from the data type of y.\n")
+}
+# The dataset consists of two columns, x and y, both of which are numeric and continuous (float64). Since the target variable y is continuous, this is a regression task.
+
+#Justification:
+#The target variable y represents continuous values (e.g., real numbers).
+#Regression tasks involve predicting continuous outputs, which aligns with the data type of y. 
+```
+
+#PART 3
+```{r}
+library(ggplot2)
+library(caret)
+library(lattice)
+# Read in the dataset
+data <- read.csv("aims-sml-2024-2025-data.csv")
+
+# Fit a simple linear regression model (for OLS estimator)
+
+anova_model <- lm(y ~ poly(x, optimal_degree, raw = TRUE), data = data)
+
+
+# View the model summary
+summary(anova_model)
+
+
+# Function to perform k-fold cross-validation for polynomial regression
+cv_poly <- function(data, p, k = 5) {
+  # Set up polynomial formula based on degree p
+  formula <- as.formula(paste("y ~ poly(x, ", p, ", raw = TRUE)", sep = ""))
+  
+  # Set up cross-validation method
+  train_control <- trainControl(method = "cv", number = k)
+  
+  # Train the model using polynomial regression
+  model <- train(formula, data = data, method = "lm", trControl = train_control)
+  
+  # Return the mean cross-validation error
+  return(mean(model$resample$RMSE)) # RMSE is a good metric for regression
+}
+
+# Try different polynomial degrees
+degrees <- 1:10
+cv_errors <- sapply(degrees, function(p) cv_poly(data, p))
+
+# Identify the optimal polynomial degree (the one with the minimum cross-validation error)
+optimal_degree <- degrees[which.min(cv_errors)]
+cat("The optimal polynomial degree is:", optimal_degree, "\n")
+
+# Plot the cross-validation error
+plot(degrees, cv_errors, type = "b", col = "blue", pch = 19, 
+     xlab = "Degree of Polynomial (p)", ylab = "Cross-Validation Error", 
+     main = "Cross-Validation Error vs Polynomial Degree")
+
+# Highlight the optimal degree on the plot
+points(optimal_degree, min(cv_errors), col = "red", pch = 19)
+text(optimal_degree, min(cv_errors), labels = paste("Optimal degree:", optimal_degree), pos = 4, col = "red")
+
+# Function to compute training error (empirical risk) for polynomial regression
+train_error <- function(data, p) {
+  # Set up polynomial formula based on degree p
+  formula <- as.formula(paste("y ~ poly(x, ", p, ", raw = TRUE)", sep = ""))
+  
+  # Fit the model
+  model <- lm(formula, data = data)
+  
+  # Predict on training data
+  predictions <- predict(model, data)
+  
+  # Calculate training error (RMSE)
+  error <- sqrt(mean((data$y - predictions)^2))
+  return(error)
+}
+
+# Compute training errors for different polynomial degrees
+train_errors <- sapply(degrees, function(p) train_error(data, p))
+
+# Plot both cross-validation and training errors
+plot(degrees, cv_errors, type = "b", col = "blue", pch = 19, 
+     xlab = "Degree of Polynomial (p)", ylab = "Error", 
+     main = "Cross-Validation and Training Error vs Polynomial Degree")
+lines(degrees, train_errors, type = "b", col = "red", pch = 19)
+# Step 6: Fit and Plot the Final Model
+final_model <- lm(y ~ poly(x, optimal_degree, raw = TRUE), data = data)
+summary(final_model)
+
+ggplot(data, aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ poly(x, optimal_degree, raw = TRUE), color = "red") +
+  labs(
+    title = paste("Polynomial Regression (Degree =", optimal_degree, ")"),
+    x = "x", y = "y"
+  ) +
+  theme_minimal()
+
+
+
+
+
+```
+#PART 4
+```{r}
+# Load required libraries
+library(ggplot2)
+library(caret)
+
+# Load data
+data <- read.csv("aims-sml-2024-2025-data.csv")
+data$x <- as.numeric(data$x)
+data$y <- as.numeric(data$y)
+
+# Simplest Model (Degree 1)
+simplest_model <- lm(y ~ poly(x, 1, raw = TRUE), data = data)
+
+# Optimal Model (Degree determined by CV)
+cv_poly_rmse <- function(data, degree, k = 5) {
+    formula <- as.formula(paste("y ~ poly(x, ", degree, ", raw = TRUE)", sep = ""))
+    train_control <- trainControl(method = "cv", number = k)
+    model <- train(formula, data = data, method = "lm", trControl = train_control)
+    return(mean(model$resample$RMSE))  # Return mean RMSE
+}
+degrees <- 1:10
+cv_errors <- sapply(degrees, function(d) cv_poly_rmse(data, d))
+optimal_degree <- degrees[which.min(cv_errors)]
+optimal_model <- lm(y ~ poly(x, optimal_degree, raw = TRUE), data = data)
+
+# Overly Complex Model (Degree 10)
+overly_complex_model <- lm(y ~ poly(x, 10, raw = TRUE), data = data)
+
+# Plot all models
+ggplot(data, aes(x = x, y = y)) +
+    geom_point(color = "black", alpha = 0.5) +
+    stat_smooth(method = "lm", formula = y ~ poly(x, 1, raw = TRUE), color = "blue", se = FALSE, linewidth = 1, aes(linetype = "Simplest Model")) +
+    stat_smooth(method = "lm", formula = y ~ poly(x, optimal_degree, raw = TRUE), color = "green", se = FALSE, linewidth = 1, aes(linetype = "Optimal Model")) +
+    stat_smooth(method = "lm", formula = y ~ poly(x, 10, raw = TRUE), color = "red", se = FALSE, linewidth = 1, aes(linetype = "Overly Complex Model")) +
+    ggtitle("Models Comparison: Simplest, Optimal, and Overly Complex") +
+    theme_minimal() +
+    labs(linetype = "Model") +
+    scale_linetype_manual(values = c("Simplest Model" = "solid", "Optimal Model" = "dashed", "Overly Complex Model" = "dotdash")) +
+    theme(legend.position = "top")
+# Stochastic Hold-Out Validation
+set.seed(123)  # For reproducibility
+S <- 100
+simplest_errors <- numeric(S)
+optimal_errors <- numeric(S)
+complex_errors <- numeric(S)
+
+for (i in 1:S) {
+    # Random split
+    train_indices <- sample(1:nrow(data), size = 0.7 * nrow(data))
+    train_data <- data[train_indices, ]
+    test_data <- data[-train_indices, ]
+    
+    # Simplest Model
+    simplest_model <- lm(y ~ poly(x, 1, raw = TRUE), data = train_data)
+    simplest_pred <- predict(simplest_model, test_data)
+    simplest_errors[i] <- sqrt(mean((test_data$y - simplest_pred)^2))
+    
+    # Optimal Model
+    optimal_model <- lm(y ~ poly(x, optimal_degree, raw = TRUE), data = train_data)
+    optimal_pred <- predict(optimal_model, test_data)
+    optimal_errors[i] <- sqrt(mean((test_data$y - optimal_pred)^2))
+    
+    # Overly Complex Model
+    overly_complex_model <- lm(y ~ poly(x, 10, raw = TRUE), data = train_data)
+    complex_pred <- predict(overly_complex_model, test_data)
+    complex_errors[i] <- sqrt(mean((test_data$y - complex_pred)^2))
+}
+
+# Boxplot of Test Errors
+error_data <- data.frame(
+    Model = rep(c("Simplest", "Optimal", "Overly Complex"), each = S),
+    Error = c(simplest_errors, optimal_errors, complex_errors)
+)
+
+ggplot(error_data, aes(x = Model, y = Error, fill = Model)) +
+    geom_boxplot() +
+    ggtitle("Test Errors Across Models (100 Splits)") +
+    theme_minimal()
+# Calculate and Print Bias for Each Model
+calculate_bias <- function(predicted, actual) {
+    return(mean(predicted - actual))
+}
+
+# Bias Calculation Using Hold-Out Validation
+simplest_biases <- numeric(S)
+optimal_biases <- numeric(S)
+complex_biases <- numeric(S)
+
+for (i in 1:S) {
+    # Random split
+    train_indices <- sample(1:nrow(data), size = 0.7 * nrow(data))
+    train_data <- data[train_indices, ]
+    test_data <- data[-train_indices, ]
+    
+    # Simplest Model
+    simplest_model <- lm(y ~ poly(x, 1, raw = TRUE), data = train_data)
+    simplest_pred <- predict(simplest_model, test_data)
+    simplest_biases[i] <- calculate_bias(simplest_pred, test_data$y)
+    
+    # Optimal Model
+    optimal_model <- lm(y ~ poly(x, optimal_degree, raw = TRUE), data = train_data)
+    optimal_pred <- predict(optimal_model, test_data)
+    optimal_biases[i] <- calculate_bias(optimal_pred, test_data$y)
+    
+    # Overly Complex Model
+    overly_complex_model <- lm(y ~ poly(x, 10, raw = TRUE), data = train_data)
+    complex_pred <- predict(overly_complex_model, test_data)
+    complex_biases[i] <- calculate_bias(complex_pred, test_data$y)
+}
+
+# Print Mean Bias Values
+cat("Mean Bias for Simplest Model:", mean(simplest_biases), "\n")
+cat("Mean Bias for Optimal Model:", mean(optimal_biases), "\n")
+cat("Mean Bias for Overly Complex Model:", mean(complex_biases), "\n")
+
+```
+#PART 5
+
+
+```{r}
+colnames(data)
+colnames(data) <- c("x", "y")
+# Fit the optimal model
+optimal_formula <- as.formula(paste("y ~ poly(x, ", optimal_degree, ", raw = TRUE)", sep = ""))
+optimal_model <- lm(optimal_formula, data = data)
+
+# Perform ANOVA
+anova_results <- anova(optimal_model)
+print(anova_results)
+summary(anova_results)
+# Generate data for predictions
+new_data <- data.frame(x = seq(min(data$x), max(data$x), length.out = 100))
+
+# Compute confidence intervals
+confidence <- predict(optimal_model, newdata = new_data, interval = "confidence")
+
+# Compute prediction intervals
+prediction <- predict(optimal_model, newdata = new_data, interval = "prediction")
+
+# Plot the data, regression line, and bands
+plot(data$x, data$y, col = "blue", pch = 19, main = "Confidence and Prediction Bands")
+lines(new_data$x, confidence[, "fit"], col = "red", lwd = 2)  # Regression line
+lines(new_data$x, confidence[, "lwr"], col = "blue", lty = 2)  # Confidence lower
+lines(new_data$x, confidence[, "upr"], col = "blue", lty = 2)  # Confidence upper
+lines(new_data$x, prediction[, "lwr"], col = "green", lty = 2)  # Prediction lower
+lines(new_data$x, prediction[, "upr"], col = "green", lty = 2)  # Prediction upper
+legend("topright", legend = c("Regression Line", "Confidence Band", "Prediction Band"),
+       col = c("red", "blue", "green"), lty = c(1, 2, 2))
+
+# Interpretation
+cat("Interpretation of Confidence and Prediction Bands:\n")
+cat("1. Confidence Bands show where the true regression line is expected to lie with 95% confidence.\n")
+cat("2. Prediction Bands show where future observations are likely to fall with 95% confidence.\n")
+cat("3. Wider bands indicate greater uncertainty, often in regions with sparse data or high variability.\n")
+
+```
+QUESTION 2
+```{r}
+library(kernlab)  # Load the package
+data(spam)
+str(spam)
+library(ggplot2)
+
+# Plot the distribution of the response
+ggplot(spam, aes(x = type)) +
+  geom_bar(fill = "steelblue") +
+  labs(title = "Distribution of Spam vs Non-Spam Emails", x = "Type", y = "Count") +
+  theme_minimal()
+# Shape of the dataset
+dim(spam)
+summary(spam)
+```
+```{r}
+# Load required libraries
+library(kernlab)  # For the spam dataset
+library(MASS)     # For LDA and QDA
+library(e1071)    # For Naive Bayes
+library(pROC)     # For ROC analysis
+
+# Load the spam dataset
+data(spam)
+
+# Fit the models
+lda_model <- lda(type ~ ., data = spam)  # Linear Discriminant Analysis
+qda_model <- qda(type ~ ., data = spam)  # Quadratic Discriminant Analysis
+nb_model <- naiveBayes(type ~ ., data = spam)  # Naive Bayes
+fld_model <- lda(type ~ ., data = spam)  # Fisher Linear Discriminant (same as LDA)
+
+# Predict probabilities
+lda_preds <- predict(lda_model, spam)$posterior[, 2]
+qda_preds <- predict(qda_model, spam)$posterior[, 2]
+nb_preds <- predict(nb_model, spam, type = "raw")[, 2]
+fld_preds <- predict(fld_model, spam)$posterior[, 2]
+
+# Calculate test errors
+lda_class <- predict(lda_model, spam)$class
+qda_class <- predict(qda_model, spam)$class
+nb_class <- predict(nb_model, spam, type = "class")
+fld_class <- lda_class  # FLD is equivalent to LDA
+
+lda_error <- mean(lda_class != spam$type)
+qda_error <- mean(qda_class != spam$type)
+nb_error <- mean(nb_class != spam$type)
+fld_error <- lda_error  # Same as LDA
+
+# Print test errors
+cat("Test Error Rates:\n")
+cat("LDA: ", lda_error, "\n")
+cat("QDA: ", qda_error, "\n")
+cat("Naive Bayes: ", nb_error, "\n")
+cat("FLD: ", fld_error, "\n")
+
+# Generate ROC curves
+roc_lda <- roc(spam$type, lda_preds, levels = rev(levels(spam$type)))
+roc_qda <- roc(spam$type, qda_preds, levels = rev(levels(spam$type)))
+roc_nb <- roc(spam$type, nb_preds, levels = rev(levels(spam$type)))
+roc_fld <- roc(spam$type, fld_preds, levels = rev(levels(spam$type)))
+# Calculate AUC for each model
+auc_lda <- auc(roc_lda)
+auc_qda <- auc(roc_qda)
+auc_nb <- auc(roc_nb)
+auc_fld <- auc(roc_fld)
+
+# Print AUC values
+cat("AUC Values:\n")
+cat("LDA: ", auc_lda, "\n")
+cat("QDA: ", auc_qda, "\n")
+cat("Naive Bayes: ", auc_nb, "\n")
+cat("FLD: ", auc_fld, "\n")
+
+
+# Plot ROC curves with fixed x-axis (False Positive Rate)
+plot(roc_lda, col = "blue", main = "Comparative ROC Curves", lwd = 2, legacy.axes = TRUE)
+lines(roc_qda, col = "red", lwd = 2)
+lines(roc_nb, col = "green", lwd = 2)
+lines(roc_fld, col = "purple", lwd = 2)
+
+# Add legend
+legend("bottomright", legend = c("LDA", "QDA", "Naive Bayes", "FLD"),
+       col = c("blue", "red", "green", "purple"), lty = 1, lwd = 2)
+citation("pROC")
+
+```
+```{r}
+library(kernlab)
+data(spam)  # Load the spam dataset
+library(MASS)
+library(e1071)
+library(pROC)
+library(caret)
+# 5. Stratified Holdout and Replications
+set.seed(19671210)
+S <- 50
+test_errors <- data.frame(LDA = numeric(S), QDA = numeric(S), NB = numeric(S), FLD = numeric(S))
+
+for (i in 1:S) {
+  index <- createDataPartition(reduced_spam$type, p = 2/3, list = FALSE)
+  train_data <- reduced_spam[index, ]
+  test_data <- reduced_spam[-index, ]
+  
+  # Fit models
+  lda_model <- lda(type ~ ., data = train_data)
+  qda_model <- qda(type ~ ., data = train_data)
+  nb_model <- naiveBayes(type ~ ., data = train_data)
+  fld_model <- lda(type ~ ., data = train_data)
+  
+  # Predictions and errors
+  lda_pred <- predict(lda_model, test_data)$class
+  qda_pred <- predict(qda_model, test_data)$class
+  nb_pred <- predict(nb_model, test_data)
+  fld_pred <- predict(fld_model, test_data)$class
+  
+  test_errors[i, ] <- c(
+    mean(lda_pred != test_data$type),  # Misclassification rate for LDA
+    mean(qda_pred != test_data$type),  # Misclassification rate for QDA
+    mean(nb_pred != test_data$type),  # Misclassification rate for Naive Bayes
+    mean(fld_pred != test_data$type)  # Misclassification rate for FLD
+  )
+}
+# Print mean test errors for each model
+cat("Model Test Errors (mean over", S, "replications):\n")
+cat(sprintf("LDA Test Error: %.4f\n", mean(test_errors$LDA)))
+cat(sprintf("QDA Test Error: %.4f\n", mean(test_errors$QDA)))
+cat(sprintf("Naive Bayes Test Error: %.4f\n", mean(test_errors$NB)))
+cat(sprintf("FLD Test Error: %.4f\n", mean(test_errors$FLD)))
+
+# Print mean accuracy for each model
+cat("Model Accuracies (mean over", S, "replications):\n")
+cat(sprintf("LDA Accuracy: %.2f%%\n", (1 - mean(test_errors$LDA)) * 100))
+cat(sprintf("QDA Accuracy: %.2f%%\n", (1 - mean(test_errors$QDA)) * 100))
+cat(sprintf("Naive Bayes Accuracy: %.2f%%\n", (1 - mean(test_errors$NB)) * 100))
+cat(sprintf("FLD Accuracy: %.2f%%\n", (1 - mean(test_errors$FLD)) * 100))
+
+# 7. Boxplot of test errors
+boxplot(test_errors, main = "Comparative Boxplots of Test Errors",
+        col = c("blue", "red", "green", "purple"),
+        names = c("LDA", "QDA", "Naive Bayes", "FLD"))
+
+```
+
+
