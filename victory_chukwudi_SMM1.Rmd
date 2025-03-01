@@ -1,0 +1,593 @@
+---
+title: "Statistical Methods for Malaria"
+author: "Chukwudi Victory"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document:
+    latex_engine: pdflatex
+    number_sections: false
+    extra_dependencies:
+    - calrsfs
+    - hyperref
+    - xcolor
+  word_document: default
+header-includes:
+- \usepackage{xcolor}
+- \usepackage{fancyhdr}
+- \pagestyle{fancy}
+- \fancyhf{}
+- \fancyhead[L]{Assignment 1}
+- \fancyfoot[R]{Write your full name here}
+- \fancyfoot[C]{\thepage}
+- \fancyfoot[L]{\includegraphics[width=.2\textwidth]{./LOGO.png}}
+- \usepackage[T1]{fontenc}
+- \usepackage{titling}
+- \pretitle{\begin{center} \LARGE\includegraphics[width=5cm]{./LOGO.PNG}\\[\bigskipamount]}
+- \posttitle{\end{center}}
+- \usepackage{float}
+- \floatplacement{figure}{H}
+- \setcounter{secnumdepth}{3}
+geometry: margin=1in
+mainfont: libertine
+urlcolor: blue
+subtitle: "Assignment - Week 1"
+toc: false
+toc_depth: 3
+toc-title: Table of Contents
+lot: false
+---
+\newpage
+#\tableofcontents  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, fig.align = 'center', fig.width=7, fig.height=5, 
+                      message = FALSE, warning = FALSE, comment = FALSE)
+```
+
+\newpage
+
+# Instructions 
+
+Solve the exercises below by providing the R code inside the code chunks, and the rest outside the code chunks. Submit both the RMarkdown (.Rmd) file and the resulting pdf file.
+
+# Packages
+
+Load all the packages and libraries that will be used for all the tasks in the assignment.
+```{r, echo=TRUE}
+library(tidyverse)
+```
+
+
+# Exercises
+
+## Exercise 1
+
+In the context of a comprehensive malaria study, a research team has chosen 200 sampling sites dispersed throughout a city. Their main objective is to assess the prevalence of Anopheles mosquitoes, vectors of malaria, by using mosquito traps at each sampling site to collect data on the number of Anopheles mosquitoes.
+
++ Is it reasonable to assume that the number of mosquitoes collected in different sampling sites are identically distributed? Justify your answer? 
+
+No, it is not necessarily reasonable to assume that the number of mosquitoes collected at different sampling sites are identically distributed.
+
+
+
+
+Justification:
+Different sampling sites may have varying environmental factors such as temperature, humidity, vegetation, and water sources, which significantly affect mosquito populations.
+Human activity, pesticide use, and the presence of breeding sites can cause heterogeneity in mosquito abundance.
+As a result, the number of mosquitoes collected at each site may follow different distributions, making the assumption of identical distribution (i.i.d.) unrealistic.
+It is not necessarily reasonable to assume that the number of mosquitoes collected at different sampling sites are identically distributed. The distribution of mosquitoes can be influenced by various environmental factors such as proximity to water bodies, vegetation, human population density, and local climate conditions. These factors can vary significantly across different locations within a city, leading to differences in mosquito populations. Therefore, the number of mosquitoes collected at each site may follow different distributions based on local conditions.
+
+
+
++ Is it reasonable to assume that the number of mosquitoes collected in different sampling sites are independent? Justify your answer?
+Not necessarily. The mosquito counts at different sites may not be completely independent.
+
+
+
+
+Justification:
+Spatial dependence: Mosquito populations are often influenced by geographic location. Sites close to each other may exhibit similar mosquito densities due to shared breeding grounds and environmental factors.
+Weather conditions and seasonality: Mosquito populations tend to fluctuate in patterns, meaning that nearby locations might experience similar population trends over time.
+Human and environmental factors: Mosquitoes may migrate or disperse between sampling sites, leading to correlations between neighboring sites.
+Thus, the assumption of independence is likely to be violated due to spatial and environmental factors.
+
+Assuming independence between the number of mosquitoes collected at different sampling sites may not be entirely reasonable. Mosquito populations can be influenced by factors that affect multiple sites simultaneously, such as weather patterns, human activities, and the presence of breeding sites. For example, a heavy rainfall event could increase mosquito populations across several nearby sites. Therefore, there may be spatial correlations between the counts of mosquitoes at different sites, suggesting that the counts are not entirely independent.
+
+
++ What probability distribution do you suggest for the number of collected mosquitoes at each sampling site? Is Gaussian distribution a good choice? Why?
+
+A suitable probability distribution for the number of collected mosquitoes at each sampling site is the Poisson distribution or the Negative Binomial distribution. These distributions are commonly used for count data, which is discrete and non-negative.
+
+Poisson Distribution: This distribution is appropriate if the mean and variance of the mosquito counts are approximately equal. It models the number of events (mosquitoes) occurring within a fixed interval of time or space.
+
+Negative Binomial Distribution: This distribution is more flexible and is suitable when the data exhibits overdispersion (variance greater than the mean). It can account for extra variability in the counts that the Poisson distribution cannot.
+
+The Gaussian (Normal) distribution is not a good choice for this type of data because:
+
+The number of mosquitoes is a count data, which is discrete, while the Gaussian distribution is continuous.
+
+Count data are non-negative, whereas the Gaussian distribution can produce negative values.
+
+The Gaussian distribution assumes symmetry around the mean, which may not be appropriate for count data that can be skewed.
+
+Lets take an example using R analysis to illustrate this.
+
+
+
+
+
+
+
+```{r}
+## R Code for Analysis
+#Below is the R code used for the analysis:
+# Load necessary libraries
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Simulate mosquito counts from a Poisson distribution with lambda = 10
+mosquito_counts <- rpois(200, lambda = 10)
+
+# Create a data frame
+df <- data.frame(mosquito_counts)
+
+# Plot histogram with Normal(Gaussian) and Poisson distribution overlay
+ggplot(df, aes(x = mosquito_counts)) +
+  geom_histogram(aes(y = ..density..), bins = 15, fill = "blue", alpha = 0.4, color = "black") +
+  stat_function(fun = dnorm, args = list(mean = mean(mosquito_counts), 
+                                         sd = sd(mosquito_counts)), 
+                color = "red", size = 1, linetype = "dashed") +
+  stat_function(fun = dpois, args = list(lambda = mean(mosquito_counts)), 
+                color = "green", size = 1) +
+  labs(title = "Comparison of Poisson and Normal(Gaussian) Distributions",
+       x = "Number of Mosquitoes Collected",
+       y = "Density") +
+  theme_minimal() +
+  annotate("text", x = 25, y = 0.08, label = "Red: Normal Fit\nGreen: Poisson Fit", size = 4, color = "black")
+
+```
+
+Results
+Histogram (Blue) → Actual mosquito count data (discrete, right-skewed).
+Red Dashed Line → Normal distribution fit.
+Key Observations
+The normal(Gaussian) distribution does not capture the peak at lower values.
+The normal curve extends into negative values, which is meaningless.
+The right tail of the mosquito count data is not symmetric, making normal distribution a poor choice.
+
+
+
+## Exercise 2
+
+Consider the simple linear regression model
+
+$$Y_i = \beta_0 + \beta_1 x_i + \epsilon_i, \quad i = 1, \cdots, n$$
+
+where $Y_i$ is the response variable, $x_i$ the explanatory variable and $\epsilon_i$ the error term. $Y = \{Y(s): s \in \mathcal{D}\}$. Assume that the errors have equal variance (i.e, the identity weight matrix is used).
+
++ Write down the sum of squared errors for this model and compute its partial derivatives with respect to $\beta_0$ and $\beta_1$?
+
++ Solve for $\beta_0$ and $\beta_1$ to obtain the least squares estimates.
+
++ Suppose the model is instead given by $Y_i = \cos(\beta_0 + \beta_1x_i) + \epsilon_i$. Can we still obtain the least squares
+estimates for $\beta_0$ and $\beta_1$ using the same approach? Explain why or why not.
+
+
+
+#Exercise 2: Solutions(Simple Linear Regression).
+
+
+
+---
+title: "Simple Linear Regression and Non-Linear Regression"
+author: "Your Name"
+date: "March 1, 2025"
+output: html_document
+---
+
+# Part 1: Sum of Squared Errors (SSE) and Partial Derivatives
+
+## Simple Linear Regression Model
+
+The simple linear regression model is:
+
+\[
+Y_i = \beta_0 + \beta_1 x_i + \epsilon_i \quad \text{for} \ i = 1, \ldots, n
+\]
+
+The **Sum of Squared Errors (SSE)** is:
+
+\[
+SSE = \sum_{i=1}^{n}(Y_i - \beta_0 - \beta_1 x_i)^2
+\]
+
+## Partial Derivatives
+
+### Partial derivative with respect to \(\beta_0\)
+
+\[
+\frac{\partial (SSE)}{\partial \beta_0} = \sum_{i=1}^{n} -2 (Y_i - \beta_0 - \beta_1 x_i)
+\]
+\[
+\frac{\partial (SSE)}{\partial \beta_0} = -2 \sum_{i=1}^{n}(Y_i - \beta_0 - \beta_1 x_i)
+\]
+
+### Partial derivative with respect to \(\beta_1\)
+
+\[
+\frac{\partial (SSE)}{\partial \beta_1} = \sum_{i=1}^{n} -2 x_i (Y_i - \beta_0 - \beta_1 x_i)
+\]
+\[
+\frac{\partial (SSE)}{\partial \beta_1} = -2 \sum_{i=1}^{n} x_i (Y_i - \beta_0 - \beta_1 x_i)
+\]
+
+# Part 2: Least Squares Estimates for \(\beta_0\) and \(\beta_1\)
+
+## First Order Conditions
+
+Set the partial derivatives to zero.
+
+### For \(\beta_0\)
+
+\[
+\sum_{i=1}^{n}(Y_i - \beta_0 - \beta_1 x_i) = 0
+\]
+
+This simplifies to:
+
+\[
+\sum_{i=1}^{n} Y_i = n\beta_0 + \beta_1 \sum_{i=1}^{n} x_i
+\]
+
+#### Solve for \(\beta_0\)
+
+\[
+\beta_0 = \frac{1}{n}\sum_{i=1}^{n} Y_i - \beta_1 \frac{1}{n}\sum_{i=1}^{n} x_i
+\]
+\[
+\beta_0 = \bar{Y} - \beta_1 \bar{x}
+\]
+Where \(\bar{Y}\) and \(\bar{x}\) are the sample means.
+
+### For \(\beta_1\)
+
+\[
+\sum_{i=1}^{n} x_i (Y_i - \beta_0 - \beta_1 x_i) = 0
+\]
+
+Substitute:
+\[
+\beta_0 = \bar{Y} - \beta_1 \bar{x}
+\]
+\[
+\sum_{i=1}^{n} x_i (Y_i - \bar{Y} + \beta_1 \bar{x} - \beta_1 x_i) = 0
+\]
+
+#### Rearranged form
+
+\[
+\sum_{i=1}^{n} x_i (Y_i - \bar{Y}) = \beta_1 \sum_{i=1}^{n} x_i (x_i - \bar{x})
+\]
+
+#### Solve for \(\beta_1\)
+
+\[
+\beta_1 = \frac{\sum_{i=1}^{n} (x_i - \bar{x}) (Y_i - \bar{Y})}{\sum_{i=1}^{n}(x_i - \bar{x})^2}
+\]
+
+#### Final estimates
+\[
+\beta_1 = \frac{\text{Cov}(x, Y)}{\text{Var}(x)}
+\]
+\[
+\beta_0 = \bar{Y} - \beta_1 \bar{x}
+\]
+
+# Part 3: Alternative Non-Linear Model
+
+The alternative model is:
+\[
+Y_i = \cos(\beta_0 + \beta_1 x_i) + \epsilon_i
+\]
+This is a **non-linear regression model**.
+                                           
+### Can We Use the Same Approach?
+
+No, the same approach cannot be used because:
+1. Nonlinearity: The model is nonlinear in the parameters \(\beta_0\) and \(\beta_1\). The partial derivatives of the SSE with respect to \(\beta_0\) and \(\beta_1\) will involve trigonometric functions, making the system of equations nonlinear and difficult to solve analytically.
+
+2. No Closed-Form Solution: Unlike the linear model, there is no closed-form solution for \(\beta_0\) and \(\beta_1\). Instead, numerical optimization methods (e.g., gradient descent, Newton-Raphson) are required to minimize the SSE.                                       
+### SUMMARY
+
+*No, we cannot use the same linear least squares approach.
+
+- In simple linear regression, \(Y_i\) depends linearly on \(\beta_0\) and \(\beta_1\), so we can solve for them directly using the normal equations.
+- In this model, \(Y_i\) depends on:
+\[
+\cos(\beta_0 + \beta_1 x_i)
+\]
+This is **non-linear** in the parameters \(\beta_0\) and \(\beta_1\), so:
+
+- Normal equations no longer apply.
+- We must use **non-linear least squares techniques**.
+- Methods such as the **Gauss-Newton algorithm** or **other numerical optimization techniques** are needed.
+
+### Summary Table
+
+| Model | Approach |
+|---|---|
+| \(Y_i = \beta_0 + \beta_1 x_i + \epsilon_i\) | Ordinary Least Squares (OLS) |
+| \(Y_i = \cos(\beta_0 + \beta_1 x_i) + \epsilon_i\) | Non-linear Least Squares (NLS) |
+
+---
+
+This concludes the analysis.
+
+
+
+
+
+
+
+
+## Exercise 3
+
+Data on monthly average wind speed (in meters per second) for the entire globe at a 10-minute spatial resolution is available from WorldClim at the following [link](https://geodata.ucdavis.edu/climate/worldclim/2_1/base/wc2.1_10m_wind.zip).
+
++ Read this data into R and plot the map of Global average wind speed in March.
+```{r}
+#write your code here
+## Load Required Libraries
+library(raster)       # For handling raster data
+library(sf)           # For spatial data manipulation
+library(ggplot2)      # For plotting
+library(dplyr)        # For data manipulation
+
+## Set Working Directory
+setwd("/home/victory/Downloads/wind_data")
+getwd()
+
+## Load Wind Speed Rasters
+wind_files <- list.files(pattern = "wc2.1_10m_wind_.*\\.tif$", full.names = TRUE)
+print(wind_files)  # Verify the files are loaded
+
+## 1. Plot Global Average Wind Speed Map for March
+# Load the March wind speed raster (file name: wc2.1_10m_wind_03.tif)
+wind_march <- raster(wind_files[3])  # March is the 3rd file
+plot(wind_march, main = "Global Average Wind Speed in March (m/s)")
+```
+
+Detailed Summary of the Global Wind Speed Map (March)
+This map provides a global visualization of average wind speeds in March, measured in meters per second (m/s). The wind speed distribution is represented using a color gradient, with darker shades indicating higher wind speeds and lighter shades representing calmer regions.
+
+Key Observations:
+Strongest Winds (Green to Dark Yellow, 15-20+ m/s)
+
+The highest wind speeds are observed in the Southern Ocean, surrounding Antarctica.
+These strong winds are primarily due to the Roaring Forties, Furious Fifties, and Screaming Sixties, which are intense westerly wind belts driven by the Earth's rotation and lack of significant land barriers.
+Some high wind activity is also seen in parts of the North Atlantic and North Pacific Oceans.
+Moderate Winds (Light Yellow to Orange, 5-15 m/s)
+
+Oceanic regions in both hemispheres exhibit moderate wind speeds, particularly in the mid-latitude westerlies.
+Coastal areas may also have relatively higher wind speeds due to the land-sea thermal contrast.
+Certain high-altitude regions, such as the Himalayas, Andes, and Rocky Mountains, may experience moderate to high wind activity.
+Lowest Winds (Light Pink to White, <5 m/s)
+
+Most of the continental landmasses exhibit lower wind speeds.
+Tropical regions, including Central Africa, the Amazon Basin, and parts of Southeast Asia, have relatively calm wind conditions.
+The equatorial zone generally experiences lower average wind speeds, as converging trade winds cancel out strong directional flow (known as the Intertropical Convergence Zone, ITCZ).
+Factors Influencing Wind Speed Distribution:
+Latitude Effects:
+
+The strongest winds are observed in the mid-to-high latitudes, particularly over oceans, due to global atmospheric circulation patterns.
+Equatorial regions tend to have lower wind speeds because of weak pressure gradients.
+Land vs. Ocean:
+
+Oceans generally have higher wind speeds due to reduced surface friction, while landmasses experience lower wind speeds due to terrain roughness (e.g., forests, mountains, buildings).
+Seasonal and Climatic Influences:
+
+March marks the transition from winter to spring in the Northern Hemisphere and summer to autumn in the Southern Hemisphere, affecting pressure systems and wind flow.
+Large-scale climate patterns such as El Niño/La Niña, the North Atlantic Oscillation (NAO), and the Southern Annular Mode (SAM) can influence wind speeds globally.
+
+
+```{r}
+## Set Working Directory
+setwd("/home/victory/Downloads/wind_data")
+getwd()
+library(raster)
+library(sf)
+## 2. Extract Wind Speeds for Kigali, Rwanda
+kigali_coords <- data.frame(lon = 30.0619, lat = -1.9441)
+kigali_wind <- sapply(wind_files, function(file) {
+  raster(file) %>% extract(kigali_coords)
+})
+
+# Create a data frame for Kigali's wind speeds
+kigali_data <- data.frame(
+  Month = month.name,
+  Wind_Speed = kigali_wind
+)
+
+# Plot Kigali's wind speeds
+ggplot(kigali_data, aes(x = Month, y = Wind_Speed)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Monthly Average Wind Speed in Kigali, Rwanda",
+       x = "Month",
+       y = "Wind Speed (m/s)") +
+  theme_minimal()
+```
+
+
+
+The image titled "Monthly Average Wind Speed in Kigali, Rwanda" is a bar plot that visualizes the monthly average wind speeds in Kigali over the course of a year. Here’s a breakdown of the key information:
+
+1. Axes and Data
+X-axis (Month): Represents the 12 months of the year, labeled from January to December.
+
+Y-axis (Wind Speed): Represents the average wind speed in meters per second (m/s).
+
+2. Monthly Wind Speeds
+The bar heights correspond to the average wind speeds for each month. Based on the structure of the plot:
+
+The wind speeds in Kigali are generally low to moderate, consistent with its tropical climate.
+
+The plot likely shows seasonal variations, with some months having slightly higher or lower wind speeds.
+
+Observations
+The highest wind speed is observed in August and June, both exceeding 2.0 m/s.
+The lowest wind speeds appear in May and April, around 1.8 m/s.
+Other months, such as January, February, March, July, September, October, November, and December, have wind speeds between 1.9 - 2.1 m/s.
+The wind speed variation across months is relatively small, staying within a narrow range.
+
+
+
+
+
+
+
+
+
+
+
+
+
++ Extract the average wind speed for Kigali, Rwanda (Latitude: $-1.9441^{\circ} N$, Longitude: $30.0619^{\circ} E$) for all twelve months of the year and plot them.
+
+```{r, echo=TRUE}
+setwd("/home/victory/Downloads/wind_data")
+getwd()
+library(raster)
+library(sf)
+## 3. Extract Wind Speeds for Essaouira, Morocco
+## Test Reading a Single File
+test_file <- wind_files[1]  # Use the first file for testing
+test_raster <- raster(test_file)
+print(test_raster)
+## Check Raster Extent
+raster_extent <- extent(raster(wind_files[1]))
+print(raster_extent)
+
+## Extract Wind Speeds for Essaouira, Morocco
+essaouira_coords <- data.frame(lon = -9.7595, lat = 31.5085)
+essaouira_wind <- sapply(wind_files, function(file) {
+  raster(file) %>% extract(essaouira_coords)
+})
+
+# Print Essaouira's wind speeds to verify
+print(essaouira_wind)
+
+## Create a Data Frame for Essaouira's Wind Speeds
+essaouira_data <- data.frame(
+  Month = month.name,
+  Wind_Speed = essaouira_wind
+)
+
+# Plot Essaouira's wind speeds
+ggplot(essaouira_data, aes(x = Month, y = Wind_Speed)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  labs(title = "Monthly Average Wind Speed in Essaouira, Morocco",
+       x = "Month",
+       y = "Wind Speed (m/s)") +
+  theme_minimal()
+
+```
+Summary of the image
+The image titled "Monthly Average Wind Speed in Essaouira, Morocco" is a bar plot that visualizes the monthly average wind speeds in Essaouira over the course of a year. Here’s a breakdown of the key information:
+
+
+1. Axes and Data
+X-axis (Month): Represents the 12 months of the year, labeled from January to December.
+
+Y-axis (Wind Speed): Represents the average wind speed in meters per second (m/s).
+
+2. Monthly Wind Speeds
+The bar heights correspond to the average wind speeds for each month. Based on the data provided earlier, the wind speeds are as follows:
+
+Month	Wind Speed (m/s)
+January	3.64
+February	4.08
+March	4.33
+April	4.89
+May	5.41
+June	4.95
+July	4.79
+August	4.60
+September	4.39
+October	3.93
+November	3.34
+December	3.53
+3. Observations
+Highest Wind Speed: The wind speed peaks in May at 5.41 m/s.
+
+Lowest Wind Speed: The wind speed is lowest in November at 3.34 m/s.
+
+Seasonal Trend:
+
+Wind speeds are generally higher in spring and summer (March to August), with May being the windiest month.
+
+Wind speeds are lower in fall and winter (September to February), with November being the calmest month.
+
+4. Implications
+The seasonal variation in wind speeds could be influenced by regional weather patterns, such as trade winds or seasonal pressure systems.
+
+Essaouira, known for its windy conditions, experiences consistent wind speeds throughout the year, making it a suitable location for wind energy generation or wind-based recreational activities.
+
+
+
+
+
+
+
+
++ Do the same as part be for Essaouira, Morocco (Latitude: $31.5085^{\circ} N$, Longitude: $-9.7595^{\circ} E$). Create a scatter plot where the x-axis represents wind speed in Kigali and the y-axis represents wind speed in Essaouira. Does the plot suggests any relationship between the wind speeds in the two locations?
+
+```{r, echo=TRUE}
+# Write your code inside this code chunk
+# Combine Kigali and Essaouira wind speeds into one data frame
+comparison_data <- data.frame(
+  Kigali = kigali_wind,
+  Essaouira = essaouira_wind
+)
+
+# Scatter plot
+ggplot(comparison_data, aes(x = Kigali, y = Essaouira)) +
+  geom_point(size = 3, color = "red") +
+  geom_smooth(method = "lm", se = FALSE, color = "blue") +
+  labs(title = "Wind Speed Comparison: Kigali vs. Essaouira",
+       x = "Wind Speed in Kigali (m/s)",
+       y = "Wind Speed in Essaouira (m/s)") +
+  theme_minimal()
+
+```
+Detailed Summary of the Wind Speed Comparison Plot (Kigali vs. Essaouira)
+This scatter plot compares the wind speeds in Kigali (Rwanda) and Essaouira (Morocco) across multiple observations.
+
+Key Observations:
+Data Representation:
+
+The x-axis represents wind speed in Kigali (m/s).
+The y-axis represents wind speed in Essaouira (m/s).
+Each red dot corresponds to an individual data point, representing simultaneous wind speed measurements in both cities.
+Trend Analysis (Blue Regression Line):
+
+A blue regression line is included to show the trend in the relationship.
+The negative slope suggests a slight negative correlation, meaning that as wind speed in Kigali increases, the wind speed in Essaouira tends to decrease, though this relationship appears weak.
+Dispersion of Data:
+
+The data points are somewhat scattered, indicating that the relationship between wind speeds in these two locations is not strongly linear.
+There are instances where wind speeds in Essaouira vary significantly, even when Kigali's wind speed remains within a narrow range (~1.8 to 2.2 m/s).
+Possible Interpretation:
+
+The weak negative correlation might suggest that wind speed variations in Kigali do not strongly influence Essaouira’s wind speeds.
+Wind patterns in these two locations are likely influenced by different climatic and geographical factors:
+Kigali (Rwanda) is located in a landlocked, hilly region in East Africa, with a relatively stable wind pattern.
+Essaouira (Morocco) is a coastal city, influenced by Atlantic Ocean winds, which tend to fluctuate more due to oceanic and atmospheric interactions.
+
+
+
+
+
+
+
+
